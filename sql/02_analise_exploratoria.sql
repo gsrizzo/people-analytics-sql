@@ -132,7 +132,8 @@ consideravelmente menor.
 
 SELECT
 	TermReason AS Motivo_Desligamento,
-	COUNT(*) AS Quantidade_Funcionarios
+	COUNT(*) AS Quantidade_Funcionarios,
+	CAST(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER () AS DECIMAL(5,2)) AS Percentual
 FROM funcionarios
 WHERE EmploymentStatus = 'Voluntarily Terminated'
 GROUP BY TermReason
@@ -176,3 +177,30 @@ Essa comparação agregada não é suficiente para descartar uma relação
 entre satisfação e desligamento. Uma análise por motivo de desligamento
 pode ajudar a investigar diferenças entre os grupos.
 */
+
+
+-- 7. Satisfação média por motivo de desligamento voluntário
+
+SELECT
+	TermReason AS Motivo_Desligamento,
+	COUNT(*) AS Quantidade_Funcionarios,
+	CAST(
+		AVG(CAST(EmpSatisfaction AS decimal(10,2)))
+		AS DECIMAL(3,2)
+	) AS Media_Satisfacao
+FROM funcionarios
+WHERE EmploymentStatus = 'Voluntarily Terminated'
+GROUP BY TermReason
+ORDER BY Media_Satisfacao;
+
+/*
+Entre os principais motivos de desligamento voluntário, os funcionários
+que saíram por "unhappy" apresentaram satisfação média de 3,57, inferior
+aos que saíram para outra posição (4,10) ou em busca de maior remuneração
+(4,18).
+
+O resultado indica uma associação entre o motivo "unhappy" e menor
+satisfação registrada. Motivos com poucos funcionários devem ser
+interpretados com cautela devido ao tamanho reduzido dos grupos.
+*/
+

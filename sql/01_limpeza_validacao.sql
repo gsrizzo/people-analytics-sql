@@ -4,16 +4,39 @@
 -- Banco de dados: SQL Server
 --
 -- Objetivo: identificar registros vazios, verificar
--- duplicidades e analisar valores nulos.
+-- duplicidades, analisar valores nulos e validar
+-- a consistência das tabelas utilizadas no projeto.
 --
--- Pré-requisito: tabela funcionarios importada.
+-- As tabelas de trabalho são recriadas a partir das
+-- tabelas originais a cada execução, garantindo que
+-- o processo de limpeza seja reproduzível.
 --
--- Os resultados registrados nos comentários referem-se
--- à primeira execução sobre a base original.
--- Novas execuções sobre a base tratada apresentarão
--- contagens diferentes nas etapas iniciais.
+-- Fonte dos dados: Human Resources Data Set - Kaggle
+-- Autor do dataset: Rich Huebner
+-- Dados sintéticos utilizados para fins de análise.
 -- =====================================================
 
+
+-- =====================================================
+-- CRIAÇÃO DAS TABELAS DE TRABALHO
+-- =====================================================
+
+DROP TABLE IF EXISTS funcionarios;
+
+SELECT *
+INTO funcionarios
+FROM funcionarios_original;
+
+DROP TABLE IF EXISTS custos_recrutamento;
+
+SELECT *
+INTO custos_recrutamento
+FROM custos_recrutamento_original;
+
+
+-- =====================================================
+-- TABELA: FUNCIONARIOS
+-- =====================================================
 
 -- 1. Quantidade inicial de registros
 
@@ -100,7 +123,7 @@ WHERE EmpID IS NULL;
 -- 6. Verificação de funcionários duplicados
 
 SELECT
-	EmpID AS ID_Funcionário,
+	EmpID AS ID_Funcionario,
 	COUNT(*) AS Quantidade
 FROM funcionarios
 GROUP BY EmpID
@@ -291,6 +314,63 @@ desligados (Termd = 1). Como não há informação disponível sobre atrasos
 nos últimos 30 dias, os valores foram mantidos como NULL.
 */
 
+-- 12.1 Validação dos tipos de dados
+
+SELECT
+    COLUMN_NAME AS Coluna,
+    DATA_TYPE AS Tipo_Dado
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'funcionarios'
+ORDER BY ORDINAL_POSITION;
+
+/*
+Os tipos de dados das 35 colunas foram verificados após a importação.
+
+As colunas apresentam tipos compatíveis com as informações armazenadas,
+incluindo datas como date, campos textuais como nvarchar e campos
+numéricos e indicadores em tipos numéricos apropriados.
+
+Não foram identificados tipos de dados que necessitassem de correção.
+*/
+
+-- 12.2 Validação da coerência dos desligamentos
+
+SELECT
+    Termd,
+    EmploymentStatus,
+    COUNT(*) AS Quantidade,
+    SUM(CASE 
+        WHEN DateofTermination IS NULL THEN 1 
+        ELSE 0 
+    END) AS Sem_Data_Desligamento
+FROM funcionarios
+GROUP BY Termd, EmploymentStatus
+ORDER BY Termd, EmploymentStatus;
+
+/*
+A validação demonstrou consistência entre o indicador Termd,
+o status de emprego e a data de desligamento.
+
+Os 207 funcionários com Termd = 0 não possuem data de desligamento,
+enquanto os 103 funcionários com Termd = 1 possuem data preenchida.
+
+Não foram identificadas inconsistências entre essas informações.
+*/
+
+-- 12.3 Validação da escala de satisfação
+
+SELECT
+    MIN(EmpSatisfaction) AS Satisfacao_Minima,
+    MAX(EmpSatisfaction) AS Satisfacao_Maxima
+FROM funcionarios;
+
+/*
+A variável EmpSatisfaction apresentou valores entre 1 e 5,
+em conformidade com a escala definida no dataset.
+
+Não foram identificados valores fora da faixa esperada.
+*/
+
 
 -- 13. Validação final da limpeza dos dados
 
@@ -315,4 +395,151 @@ Os 103 valores nulos em LastPerformanceReview_Date e os
 suficiente para preenchê-los. Essas ausências foram observadas
 em funcionários desligados (Termd = 1), sem determinação
 da causa da ausência.
+*/
+
+
+-- =====================================================
+-- TABELA: CUSTOS_RECRUTAMENTO
+-- =====================================================
+
+-- 1. Quantidade inicial de registros
+
+SELECT COUNT(*) AS Total_Registros
+FROM custos_recrutamento;
+
+-- A tabela custos_recrutamento possui 22 registros.
+
+
+-- 2. Verificação de fontes de recrutamento duplicadas
+
+SELECT
+    Employment_Source AS Fonte_Recrutamento,
+    COUNT(*) AS Quantidade
+FROM custos_recrutamento
+GROUP BY Employment_Source
+HAVING COUNT(*) > 1;
+
+-- Nenhuma fonte de recrutamento duplicada foi identificada.
+
+
+-- 3. Verificação de valores nulos
+
+SELECT
+    SUM(CASE WHEN Employment_Source IS NULL THEN 1 ELSE 0 END) AS Nulos_Employment_Source,
+    SUM(CASE WHEN January IS NULL THEN 1 ELSE 0 END) AS Nulos_January,
+    SUM(CASE WHEN February IS NULL THEN 1 ELSE 0 END) AS Nulos_February,
+    SUM(CASE WHEN March IS NULL THEN 1 ELSE 0 END) AS Nulos_March,
+    SUM(CASE WHEN April IS NULL THEN 1 ELSE 0 END) AS Nulos_April,
+    SUM(CASE WHEN May IS NULL THEN 1 ELSE 0 END) AS Nulos_May,
+    SUM(CASE WHEN June IS NULL THEN 1 ELSE 0 END) AS Nulos_June,
+    SUM(CASE WHEN July IS NULL THEN 1 ELSE 0 END) AS Nulos_July,
+    SUM(CASE WHEN August IS NULL THEN 1 ELSE 0 END) AS Nulos_August,
+    SUM(CASE WHEN September IS NULL THEN 1 ELSE 0 END) AS Nulos_September,
+    SUM(CASE WHEN October IS NULL THEN 1 ELSE 0 END) AS Nulos_October,
+    SUM(CASE WHEN November IS NULL THEN 1 ELSE 0 END) AS Nulos_November,
+    SUM(CASE WHEN December IS NULL THEN 1 ELSE 0 END) AS Nulos_December,
+    SUM(CASE WHEN Total IS NULL THEN 1 ELSE 0 END) AS Nulos_Total
+FROM custos_recrutamento;
+
+-- Não foram identificados valores nulos na tabela.
+
+
+-- 4. Validação do custo total por fonte de recrutamento
+
+SELECT
+    Employment_Source AS Fonte_Recrutamento,
+    Total AS Custo_Total,
+    (January + February + March + April + May + June +
+    July + August + September + October + November + December)
+        AS Soma_Custos_Mensais
+FROM custos_recrutamento
+WHERE Total <> (
+    January + February + March + April + May + June +
+    July + August + September + October + November + December
+);
+
+/*
+Foram identificadas 3 fontes de recrutamento em que o custo total
+informado não corresponde à soma dos custos mensais:
+
+- Pay Per Click: Total = 1323 | Soma mensal = 1325
+- Pay Per Click - Google: Total = 3509 | Soma mensal = 3510
+- Website Banner Ads: Total = 7143 | Soma mensal = 7145
+
+Como não há evidências para identificar um mês específico como incorreto,
+a soma dos custos mensais será utilizada para corrigir o valor de Total.
+*/
+
+
+-- 5. Correção dos custos totais inconsistentes
+
+UPDATE custos_recrutamento
+SET Total =
+    January + February + March + April + May + June +
+    July + August + September + October + November + December
+WHERE Total <> (
+    January + February + March + April + May + June +
+    July + August + September + October + November + December
+);
+
+-- Validação após a correção dos custos totais
+
+SELECT
+    Employment_Source AS Fonte_Recrutamento,
+    Total AS Custo_Total,
+    January + February + March + April + May + June +
+    July + August + September + October + November + December
+        AS Soma_Custos_Mensais
+FROM custos_recrutamento
+WHERE Total <> (
+    January + February + March + April + May + June +
+    July + August + September + October + November + December
+);
+
+-- Após a correção, nenhuma inconsistência foi identificada entre
+-- o custo total e a soma dos custos mensais.
+
+
+-- 6. Verificação de fontes com custo zerado em todos os meses
+
+SELECT *
+FROM custos_recrutamento
+WHERE January = 0
+    AND February = 0
+    AND March = 0
+    AND April = 0
+    AND May = 0
+    AND June = 0
+    AND July = 0
+    AND August = 0
+    AND September = 0
+    AND October = 0
+    AND November = 0
+    AND December = 0
+    AND Total = 0;
+
+/*
+Foram identificadas 8 fontes de recrutamento com custo igual a zero
+em todos os meses e no custo total.
+
+Como não há evidências de que esses valores representem dados ausentes
+ou incorretos, os registros foram mantidos sem alteração.
+*/
+
+
+-- 7. Validação da correspondência das fontes entre as tabelas
+
+SELECT DISTINCT
+    f.RecruitmentSource AS Fonte_Funcionarios
+FROM funcionarios AS f
+LEFT JOIN custos_recrutamento AS c
+    ON f.RecruitmentSource = c.Employment_Source
+WHERE c.Employment_Source IS NULL;
+
+/*
+A fonte de recrutamento "Indeed" está presente na tabela funcionarios,
+mas não possui correspondência na tabela custos_recrutamento.
+
+Como não há informação disponível sobre o custo dessa fonte,
+nenhum valor foi estimado ou inserido.
 */
