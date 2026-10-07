@@ -314,7 +314,8 @@ desligados (Termd = 1). Como não há informação disponível sobre atrasos
 nos últimos 30 dias, os valores foram mantidos como NULL.
 */
 
--- 12.1 Validação dos tipos de dados
+
+-- 13. Validação dos tipos de dados
 
 SELECT
     COLUMN_NAME AS Coluna,
@@ -333,7 +334,8 @@ numéricos e indicadores em tipos numéricos apropriados.
 Não foram identificados tipos de dados que necessitassem de correção.
 */
 
--- 12.2 Validação da coerência dos desligamentos
+
+-- 14. Validação da coerência dos desligamentos
 
 SELECT
     Termd,
@@ -357,7 +359,8 @@ enquanto os 103 funcionários com Termd = 1 possuem data preenchida.
 Não foram identificadas inconsistências entre essas informações.
 */
 
--- 12.3 Validação da escala de satisfação
+
+-- 15. Validação da escala de satisfação
 
 SELECT
     MIN(EmpSatisfaction) AS Satisfacao_Minima,
@@ -372,7 +375,49 @@ Não foram identificados valores fora da faixa esperada.
 */
 
 
--- 13. Validação final da limpeza dos dados
+-- 16. Correção da escala de engajamento
+
+UPDATE funcionarios
+SET EngagementSurvey = EngagementSurvey / 100.0;
+
+-- Validação após a correção da escala
+
+SELECT
+    MIN(EngagementSurvey) AS Engajamento_Minimo,
+    MAX(EngagementSurvey) AS Engajamento_Maximo
+FROM funcionarios;
+
+/*
+A variável EngagementSurvey foi importada com a escala multiplicada
+por 100 em relação aos valores presentes no arquivo original.
+
+Os valores foram corrigidos para restabelecer a escala original
+de engajamento, entre 1,03 e 5,00.
+*/
+
+
+-- 17. Correção da escala de remuneração
+
+UPDATE funcionarios
+SET PayRate = PayRate / 100.0;
+
+-- Validação após a correção da escala
+
+SELECT
+    MIN(PayRate) AS Remuneracao_Minima,
+    MAX(PayRate) AS Remuneracao_Maxima
+FROM funcionarios;
+
+/*
+A variável PayRate foi importada com a escala multiplicada
+por 100 em relação aos valores presentes no arquivo original.
+
+Os valores foram corrigidos para restabelecer a escala
+de remuneração presente no dataset original.
+*/
+
+
+-- 18. Validação final da limpeza dos dados
 
 SELECT
 	COUNT(*) AS Total_Registros,

@@ -154,8 +154,8 @@ está concentrada nessas três categorias.
 SELECT
 	CASE
 		WHEN Termd = 1 THEN 'Desligado'
-		ELSE 'Nao desligado'
-	END AS Situacao,
+		ELSE 'Não Desligado'
+	END AS Status_Desligamento,
 	COUNT(*) AS Quantidade_Funcionarios,
 	CAST(
 		AVG(CAST(EmpSatisfaction AS DECIMAL(10,2)))
@@ -166,7 +166,7 @@ GROUP BY Termd
 ORDER BY Termd;
 
 /*
-A satisfação é medida em uma escala de 1 a 5. O grupo "Nao desligado"
+A satisfação é medida em uma escala de 1 a 5. O grupo "Não Desligado"
 inclui funcionários ativos, afastados e com início futuro (207 no total).
 
 A satisfação média registrada é semelhante entre funcionários
@@ -185,7 +185,7 @@ SELECT
 	TermReason AS Motivo_Desligamento,
 	COUNT(*) AS Quantidade_Funcionarios,
 	CAST(
-		AVG(CAST(EmpSatisfaction AS decimal(10,2)))
+		AVG(CAST(EmpSatisfaction AS DECIMAL(10,2)))
 		AS DECIMAL(3,2)
 	) AS Media_Satisfacao
 FROM funcionarios
@@ -204,3 +204,126 @@ satisfação registrada. Motivos com poucos funcionários devem ser
 interpretados com cautela devido ao tamanho reduzido dos grupos.
 */
 
+
+-- 8. Engajamento médio por status de desligamento
+
+SELECT
+	CASE
+		WHEN Termd = 0 THEN 'Não Desligado'
+		ELSE 'Desligado'
+	END AS Status_Desligamento,
+	COUNT(*) AS Quantidade_Funcionarios,
+	CAST(
+		AVG(CAST(EngagementSurvey AS DECIMAL(10,2)))
+		AS DECIMAL(5,2)
+	) AS Media_Engajamento
+FROM funcionarios
+GROUP BY Termd;
+
+/*
+O nível médio de engajamento foi de 3,33 tanto entre funcionários
+não desligados quanto entre funcionários desligados.
+
+Os resultados indicam que, nesta base, não foi observada diferença
+relevante no engajamento médio entre os dois grupos.
+*/
+
+
+-- 9. Desempenho por status de desligamento
+
+SELECT
+	CASE
+		WHEN Termd = 0 THEN 'Não Desligado'
+		ELSE 'Desligado'
+	END AS Status_Desligamento,
+	CASE
+		WHEN PerformanceScore = 'Exceeds' THEN 'Supera as Expectativas'
+		WHEN PerformanceScore = 'Fully Meets' THEN 'Atende às Expectativas'
+		WHEN PerformanceScore = 'Needs Improvement' THEN 'Precisa Melhorar'
+		WHEN PerformanceScore = 'PIP' THEN 'Plano de Melhoria'
+	END AS Desempenho,
+	COUNT(*) AS Quantidade_Funcionarios,
+	CAST(
+		COUNT(*) * 100.0 /
+		SUM(COUNT(*)) OVER (PARTITION BY Termd)
+		AS DECIMAL(5,2)
+	) AS Percentual
+FROM funcionarios
+GROUP BY Termd, PerformanceScore
+ORDER BY
+	CASE PerformanceScore
+		WHEN 'Exceeds' THEN 1
+		WHEN 'Fully Meets' THEN 2
+		WHEN 'Needs Improvement' THEN 3
+		WHEN 'PIP' THEN 4
+	END,
+	Termd;
+
+/*
+A maior parte dos funcionários de ambos os grupos atende às expectativas,
+com percentuais semelhantes entre não desligados (78,26%) e desligados (78,64%).
+
+A principal diferença foi observada na categoria "Precisa Melhorar",
+que representa 9,71% dos desligados e 3,86% dos não desligados.
+
+Também foi observada menor proporção de funcionários que superam as
+expectativas entre os desligados (7,77%) em comparação aos não desligados (14,01%).
+
+Os resultados indicam uma associação entre o perfil de desempenho e o
+status de desligamento, sem estabelecer relação de causa.
+*/
+
+
+-- 10. Remuneração média por status de desligamento
+
+SELECT
+	CASE
+		WHEN Termd = 0 THEN 'Não Desligado'
+		ELSE 'Desligado'
+	END AS Status_Desligamento,
+	COUNT(*) AS Quantidade_Funcionarios,
+	CAST(AVG(PayRate) AS DECIMAL(10,2)) AS Media_Remuneracao
+FROM funcionarios
+GROUP BY Termd;
+
+/*
+Os funcionários desligados apresentaram remuneração média de US$ 27,00
+por hora, enquanto os não desligados apresentaram média de US$ 33,41
+por hora.
+
+A remuneração média dos desligados foi aproximadamente 19% menor.
+Esse resultado é relevante considerando que "more money" aparece
+entre os principais motivos de desligamento voluntário.
+
+Os dados indicam uma associação entre remuneração e desligamento,
+sem estabelecer relação de causa.
+
+A comparação considera a remuneração média geral dos grupos,
+sem controlar possíveis diferenças de remuneração entre cargos
+ou departamentos.
+*/
+
+
+-- 11. Tempo médio de empresa até o desligamento
+
+SELECT
+	COUNT(*) AS Quantidade_Desligados,
+	CAST(
+		AVG(CAST(DATEDIFF(MONTH, DateofHire, DateofTermination) AS DECIMAL(10,2)))
+		AS DECIMAL(10,2)
+	) AS Media_Meses_Empresa
+FROM funcionarios
+WHERE Termd = 1;
+
+/*
+Os 103 funcionários desligados permaneceram, em média,
+25,12 meses na empresa, o equivalente a aproximadamente
+2 anos e 1 mês.
+
+O resultado indica que, em média, os desligamentos registrados
+na base ocorreram após pouco mais de dois anos de permanência
+na empresa.
+
+O tempo de permanência é aproximado, pois DATEDIFF(MONTH, ...)
+considera as diferenças entre meses de calendário.
+*/
